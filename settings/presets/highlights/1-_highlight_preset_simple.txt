@@ -1,0 +1,7 @@
+"#highlight_preset.simple"
+{
+	"highlight_range"	"400"
+	"highlight_height"	"32"
+	"highlight_width"	"1"
+	"highlight_text"	"0"
+}

@@ -2,6 +2,14 @@ if ( SERVER ) then
 
 	AddCSLuaFile()
 
+	local localizations = {
+		'resource/localization/en/highlights.properties',
+	}
+
+	for index, properties in ipairs( localizations ) do
+		resource.AddFile( properties )
+	end
+
 	return
 end
 
@@ -14,8 +22,8 @@ if ( not istable( highlight ) ) then
 		end,
 		Version	= {
 			1, -- major
-			0, -- minor
-			0, -- patch
+			3, -- minor
+			4, -- patch
 		}
 
 	}
@@ -24,7 +32,7 @@ if ( not istable( highlight ) ) then
 
 end
 
-local colors, classes = {}, {}
+local colors, classes = ( colors or {} ), ( classes or {} )
 
 do -- @colors
 
@@ -57,12 +65,12 @@ do -- @classes
 		classes[ className ] = colorName
 	end
 
-	-- highlight.AddClass( 'item_healthcharger', 'health' )
+	highlight.AddClass( 'item_healthcharger', 'health' )
 	highlight.AddClass( 'item_healthkit', 'health' )
 	highlight.AddClass( 'item_healthvial', 'health' )
 	highlight.AddClass( 'item_battery', 'armor' )
 	highlight.AddClass( 'item_suit', 'armor' )
-	-- highlight.AddClass( 'item_suitcharger', 'armor' )
+	highlight.AddClass( 'item_suitcharger', 'armor' )
 
 	highlight.AddClass( 'item_item_crate', 'entity' )
 	highlight.AddClass( 'item_ammo_crate', 'ammo' )
@@ -80,11 +88,13 @@ do -- @classes
 		highlight.AddClass( className, 'ammo' )
 	end
 
+	highlight.AddClass( 'grenade_helicopter', 'weapon' )
+
 	local weapons = {
 		'weapon_357', 'weapon_ar2', 'weapon_bugbait', 'weapon_crossbow',
 		'weapon_crowbar', 'weapon_frag', 'weapon_physcannon', 'weapon_pistol',
 		'weapon_rpg', 'weapon_shotgun', 'weapon_slam', 'weapon_smg1',
-		'weapon_stunstick', 'weapon_striderbuster'
+		'weapon_stunstick'
 	}
 
 	for index, className in ipairs( weapons ) do
@@ -138,9 +148,33 @@ do -- @hooks
 		beamWidth = tonumber( newWidth )
 	end, 'beamWidth' )
 
-	-- these could be settings too
-	local textFont = 'HudSelectionText'
-	local textHeight = Vector( 0, 0, 4 )
+	local highlight_text = CreateConVar(
+		'highlight_text',
+		'1',
+		FCVAR_ARCHIVE,
+		language_GetPhrase( 'highlight_text.helptext' ),
+		0,
+		1
+	)
+	local textDraw = highlight_text:GetBool()
+	cvars.RemoveChangeCallback( highlight_text:GetName(), 'textDraw' )
+	cvars.AddChangeCallback( highlight_text:GetName(), function( convarName, oldDraw, newDraw )
+		textDraw = tobool( newDraw )
+	end, 'textDraw' )
+
+	local highlight_font = CreateConVar(
+		'highlight_font',
+		'HudSelectionText',
+		FCVAR_ARCHIVE,
+		language_GetPhrase( 'highlight_font.helptext' )
+	)
+	local textFont = highlight_font:GetString()
+	cvars.RemoveChangeCallback( highlight_font:GetName(), 'textFont' )
+	cvars.AddChangeCallback( highlight_font:GetName(), function( convarName, oldFont, newFont )
+		textFont = tostring( newFont )
+	end, 'textFont' )
+
+	local textHeight = Vector( 0, 0, 4 ) -- this could be settings too
 
 	local function DrawHighlight( startPos, color, text )
 
@@ -160,7 +194,8 @@ do -- @hooks
 
 		render_DepthRange( 0, 1 )
 
-		if ( not text ) then
+		if ( not textDraw )
+		or ( not text ) then
 			return
 		end
 
@@ -188,7 +223,7 @@ do -- @hooks
 	highlight.Draw = DrawHighlight
 
 	local math_cos, math_rad = math.cos, math.rad
-	local util_TraceEntity = util.TraceEntity
+	local util_TraceLine = util.TraceLine
 
 	local fov_desired = GetConVar( 'fov_desired' )
 	local fov_cos = math_cos( math_rad( fov_desired:GetFloat() ) )
@@ -200,7 +235,7 @@ do -- @hooks
 	local visOffset = Vector( 0, 0, 16 )
 
 	local traceRes = {}
-	local trace = { mask = MASK_SHOT, ignoreworld = false, output = traceRes }
+	local trace = { mask = MASK_BLOCKLOS, collisiongroup = COLLISION_GROUP_NONE, ignoreworld = false, output = traceRes }
 
 	local function Visible( eyePos, eyeVector, entity )
 
@@ -214,9 +249,9 @@ do -- @hooks
 			trace.start = pos
 			trace.endpos = eyePos
 			trace.filter = entity
-			util_TraceEntity( trace, entity )
+			util_TraceLine( trace )
 
-			return traceRes.HitNonWorld
+			return ( not traceRes.Hit )
 		end
 
 		return false
@@ -246,10 +281,10 @@ do -- @hooks
 		1024
 	)
 	local range = highlight_range:GetInt()
-	cvars.RemoveChangeCallback( highlight_range:GetName(), 'variable_update' )
+	cvars.RemoveChangeCallback( highlight_range:GetName(), 'range' )
 	cvars.AddChangeCallback( highlight_range:GetName(), function( convarName, oldRange, newRange )
 		range = tonumber( newRange )
-	end, 'variable_update' )
+	end, 'range' )
 
 	function highlight:PostDrawTranslucentRenderables( bDepth, bSkybox, bSkybox3D )
 
@@ -298,34 +333,6 @@ do -- @hooks
 	end
 	hook.Add( 'PostDrawTranslucentRenderables', highlight, highlight.PostDrawTranslucentRenderables )
 
-	local function NumSlider( CPanel, ConVar )
-		local convarName = ConVar:GetName()
-		CPanel:NumSlider( '#' .. convarName, convarName, ConVar:GetMin(), ConVar:GetMax(), 0 )
-		CPanel:Help( ConVar:GetHelpText() )
-	end
-
-	function highlight:PopulateToolMenu()
-
-		local tab, category = 'Utilities', '#highlights'
-		local className, printName = 'highlight_settings', '#Settings'
-		local command, config = '', ''
-
-		spawnmenu.AddToolMenuOption( tab, category, className, printName, command, config, function( CPanel )
-	
-			CPanel:ClearControls()
-
-			NumSlider( CPanel, highlight_range )
-			NumSlider( CPanel, highlight_height )
-			NumSlider( CPanel, highlight_width )
-
-			CPanel:Button( '#highlight_reset', 'highlight_reset' )
-			CPanel:Help( '#highlight_reset.helptext' )
-
-		end )
-
-	end
-	hook.Add( 'PopulateToolMenu', highlight, highlight.PopulateToolMenu )
-
 	local function ResetConVar( ConVar, Type )
 		ConVar[ 'Set' .. Type ]( ConVar, ConVar:GetDefault() )
 	end
@@ -335,21 +342,166 @@ do -- @hooks
 		ResetConVar( highlight_range, 'Int' )
 		ResetConVar( highlight_height, 'Float' )
 		ResetConVar( highlight_width, 'Float' )
+		ResetConVar( highlight_text, 'Bool' )
+		ResetConVar( highlight_font, 'String' )
+
+		MsgN( '[highlights] reset settings' )
 
 	end )
+
+	local function NumSlider( CPanel, ConVar )
+		local convarName = ConVar:GetName()
+		CPanel:NumSlider( ( '#' .. convarName ), convarName, ConVar:GetMin(), ConVar:GetMax(), 0 )
+		CPanel:Help( ConVar:GetHelpText() )
+	end
+
+	local function ConVarOption( ConVar, data )
+		data[ ConVar:GetName() ] = ConVar:GetDefault()
+	end
+
+	local font_defaults = { highlight_font:GetDefault(), 'GModWorldtip' }
+
+	function highlight:PopulateToolMenu()
+
+		local tab, category = 'Options', '#highlights'
+		local className, printName = 'highlight_settings', '#Settings'
+		local command, config = '', ''
+
+		spawnmenu.AddToolMenuOption( tab, category, className, printName, command, config, function( CPanel )
+	
+			CPanel:ClearControls()
+
+			local data = { Options = {}, CVars = {}, MenuButton = '1', Folder = 'highlights' }
+
+			data.Options[ '#preset.default' ] = {}
+
+			for name, color in pairs( colors ) do
+				local convarName = ( 'highlight_color_' .. name )
+				local highlight_color = GetConVar( convarName )
+				data.Options[ '#preset.default' ][ convarName ] = highlight_color:GetDefault()
+			end
+
+			ConVarOption( highlight_range, data.Options[ '#preset.default' ] )
+			ConVarOption( highlight_height, data.Options[ '#preset.default' ] )
+			ConVarOption( highlight_width, data.Options[ '#preset.default' ] )
+			ConVarOption( highlight_text, data.Options[ '#preset.default' ] )
+			ConVarOption( highlight_font, data.Options[ '#preset.default' ] )
+
+			data.CVars = table.GetKeys( data.Options[ '#preset.default' ] )
+
+			CPanel:AddControl( 'ComboBox', data )
+
+			local convarName = 'highlight_color_health'
+
+			local DComboBox, DLabel = CPanel:ComboBox( '#Color' )
+			DComboBox:SetValue( ( '#' .. convarName ) )
+			DComboBox:SetSortItems( false )
+
+			for name, color in pairs( colors ) do
+				DComboBox:AddChoice( ( '#highlight_color_' .. name ), name )
+			end
+
+			local DColorMixer = vgui.Create( 'DColorMixer', CPanel )
+			DColorMixer:SetPalette( true )
+			DColorMixer:SetAlphaBar( false )
+			DColorMixer:SetWangs( true )
+			DColorMixer:SetColor( string.ToColor( cvars.String( convarName ) ) )
+
+			CPanel:AddItem( DColorMixer )
+
+			DColorMixer.ValueChanged = function( self, newColor )
+				RunConsoleCommand( convarName, string.FromColor( newColor ) )
+			end
+
+			DComboBox.OnSelect = function( self, index, value, data )
+				convarName = ( 'highlight_color_' .. data )
+				DColorMixer:SetColor( string.ToColor( cvars.String( convarName ) ) )
+			end
+
+			local DButton = CPanel:Button( '#highlight_color_reset' )
+			CPanel:ControlHelp( '#highlight_color_reset.helptext' )
+
+			DButton.DoClick = function( self )
+
+				for name, color in pairs( colors ) do
+					local convarName = ( 'highlight_color_' .. name )
+					ResetConVar( GetConVar( convarName ), 'String' )
+				end
+
+			end
+
+			NumSlider( CPanel, highlight_range )
+			NumSlider( CPanel, highlight_height )
+			NumSlider( CPanel, highlight_width )
+			CPanel:CheckBox( '#highlight_text', 'highlight_text' )
+			CPanel:Help( '#highlight_text.helptext' )
+			local DComboBox, DLabel = CPanel:ComboBox( '#highlight_font', 'highlight_font' )
+			for index, font in ipairs( font_defaults ) do
+				DComboBox:AddChoice( font )
+			end
+			CPanel:Help( '#highlight_font.helptext' )
+
+			CPanel:Button( '#highlight_reset', 'highlight_reset' )
+			CPanel:Help( '#highlight_reset.helptext' )
+
+		end )
+
+	end
+	hook.Add( 'PopulateToolMenu', highlight, highlight.PopulateToolMenu )
 
 end
 
 do -- @support
 
-	MsgN( '[highlights.lua] loaded ' .. highlight.Version )
+	MsgN( '[highlights] loaded ' .. highlight.Version )
 
+	-- @games
+	if IsMounted( 'hl1' ) then
+
+		local item_ammo = {
+			'ammo_357',
+			'ammo_9mmbox',
+			'ammo_buckshot',
+			'ammo_crossbow',
+			'ammo_gaussclip',
+			'ammo_glockclip',
+			'ammo_mp5clip', 'ammo_mp5grenades',
+			'ammo_rpgclip'
+		}
+
+		for index, className in ipairs( item_ammo ) do
+			highlight.AddClass( className, 'ammo' )
+		end
+
+		local weapons = {
+			'weapon_357_hl1', 'weapon_crossbow_hl1', 'weapon_crowbar_hl1',
+			'weapon_glock_hl1', 'weapon_egon', 'weapon_handgrenade',
+			'weapon_hornetgun', 'weapon_mp5_hl1', 'weapon_rpg_hl1',
+			'weapon_satchel', 'weapon_snark', 'weapon_shotgun_hl1',
+			'weapon_gauss', 'weapon_tripmine'
+		}
+
+		for index, className in ipairs( weapons ) do
+			highlight.AddClass( className, 'weapon' )
+		end
+
+	end
+
+	if IsMounted( 'ep2' ) then
+		highlight.AddClass( 'weapon_striderbuster', 'weapon' )
+	end
+
+	-- @gamemodes
 	local gamemode = engine.ActiveGamemode()
 
 	if ( gamemode == 'sandbox' ) then
 
 		-- makes tools distinct from weapons
 		highlight.AddColor( 'tool', '255 0 204 255' )
+
+		highlight.AddClass( 'edit_fog', 'entity' )
+		highlight.AddClass( 'edit_sky', 'entity' )
+		highlight.AddClass( 'edit_sun', 'entity' )
 
 		highlight.AddClass( 'gmod_camera', 'tool' )
 		highlight.AddClass( 'gmod_tool', 'tool' )
