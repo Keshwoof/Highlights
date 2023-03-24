@@ -22,8 +22,8 @@ if ( not istable( highlight ) ) then
 		end,
 		Version	= {
 			1, -- major
-			3, -- minor
-			4, -- patch
+			4, -- minor
+			9, -- patch
 		}
 
 	}
@@ -83,7 +83,6 @@ do -- @classes
 		'item_ammo_smg1', 'item_ammo_smg1_large', 'item_ammo_smg1_grenade',
 		'item_box_buckshot', 'item_rpg_round'
 	}
-
 	for index, className in ipairs( item_ammo ) do
 		highlight.AddClass( className, 'ammo' )
 	end
@@ -91,12 +90,12 @@ do -- @classes
 	highlight.AddClass( 'grenade_helicopter', 'weapon' )
 
 	local weapons = {
+		'npc_grenade_frag',
 		'weapon_357', 'weapon_ar2', 'weapon_bugbait', 'weapon_crossbow',
 		'weapon_crowbar', 'weapon_frag', 'weapon_physcannon', 'weapon_pistol',
 		'weapon_rpg', 'weapon_shotgun', 'weapon_slam', 'weapon_smg1',
 		'weapon_stunstick'
 	}
-
 	for index, className in ipairs( weapons ) do
 		highlight.AddClass( className, 'weapon' )
 	end
@@ -117,6 +116,8 @@ do -- @hooks
 	local surface_SetTextColor = surface.SetTextColor
 	local surface_SetTextPos = surface.SetTextPos
 	local surface_DrawText = surface.DrawText
+
+	local VectorToScreen = debug.getregistry().Vector.ToScreen
 
 	local beamMaterial = Material( 'vgui/gradient-u' )
 
@@ -202,10 +203,10 @@ do -- @hooks
 		cam_Start2D()
 
 			surface_SetFont( textFont )
-	
-			local data = ( endPos + textHeight ):ToScreen()
+
+			local data = VectorToScreen( endPos + textHeight )
 			local x, y = data.x, data.y
-			
+
 			local wide, tall = surface_GetTextSize( text )
 			x, y = x - ( wide / 2 ), y - ( tall / 2 )
 
@@ -258,6 +259,10 @@ do -- @hooks
 	end
 
 	local function PassesFilter( entity )
+
+		if entity:IsEffectActive( EF_NODRAW ) then
+			return false
+		end
 
 		if entity:IsWeapon() then
 
@@ -331,7 +336,27 @@ do -- @hooks
 		end
 
 	end
-	hook.Add( 'PostDrawTranslucentRenderables', highlight, highlight.PostDrawTranslucentRenderables )
+
+	local highlight_draw = CreateConVar(
+		'highlight_draw',
+		'1',
+		FCVAR_ARCHIVE,
+		language_GetPhrase( 'highlight_draw.helptext' ),
+		0,
+		1
+	)
+	local function DrawCallback( convarName, oldDraw, newDraw )
+		if tobool( newDraw ) then
+			hook.Add( 'PostDrawTranslucentRenderables', highlight, highlight.PostDrawTranslucentRenderables )
+			MsgN( '[highlights] hooked' )
+		else
+			hook.Remove( 'PostDrawTranslucentRenderables', highlight )
+			MsgN( '[highlights] unhooked' )
+		end
+	end
+	cvars.RemoveChangeCallback( highlight_draw:GetName(), 'hook' )
+	cvars.AddChangeCallback( highlight_draw:GetName(), DrawCallback, 'hook' )
+	DrawCallback( highlight_draw:GetName(), 0, tostring( highlight_draw:GetInt() ) )
 
 	local function ResetConVar( ConVar, Type )
 		ConVar[ 'Set' .. Type ]( ConVar, ConVar:GetDefault() )
@@ -339,6 +364,7 @@ do -- @hooks
 
 	concommand.Add( 'highlight_reset', function( player, command, arguments, impulse )
 
+		ResetConVar( highlight_draw, 'Bool' )
 		ResetConVar( highlight_range, 'Int' )
 		ResetConVar( highlight_height, 'Float' )
 		ResetConVar( highlight_width, 'Float' )
@@ -430,6 +456,8 @@ do -- @hooks
 
 			end
 
+			CPanel:CheckBox( '#highlight_draw', 'highlight_draw' )
+			CPanel:Help( '#highlight_draw.helptext' )
 			NumSlider( CPanel, highlight_range )
 			NumSlider( CPanel, highlight_height )
 			NumSlider( CPanel, highlight_width )
@@ -455,86 +483,111 @@ do -- @support
 
 	MsgN( '[highlights] loaded ' .. highlight.Version )
 
-	-- @games
-	if IsMounted( 'hl1' ) then
+	function highlight:PostGamemodeLoaded()
 
-		local item_ammo = {
-			'ammo_357',
-			'ammo_9mmbox',
-			'ammo_buckshot',
-			'ammo_crossbow',
-			'ammo_gaussclip',
-			'ammo_glockclip',
-			'ammo_mp5clip', 'ammo_mp5grenades',
-			'ammo_rpgclip'
-		}
+		-- @games
+		if IsMounted( 'hl1' ) then
 
-		for index, className in ipairs( item_ammo ) do
-			highlight.AddClass( className, 'ammo' )
+			local item_ammo = {
+				'ammo_357',
+				'ammo_9mmbox',
+				'ammo_buckshot',
+				'ammo_crossbow',
+				'ammo_gaussclip',
+				'ammo_glockclip',
+				'ammo_mp5clip', 'ammo_mp5grenades',
+				'ammo_rpgclip'
+			}
+			for index, className in ipairs( item_ammo ) do
+				highlight.AddClass( className, 'ammo' )
+			end
+
+			local weapons = {
+				'weapon_357_hl1', 'weapon_crossbow_hl1', 'weapon_crowbar_hl1',
+				'weapon_glock_hl1', 'weapon_egon', 'weapon_handgrenade',
+				'weapon_hornetgun', 'weapon_mp5_hl1', 'weapon_rpg_hl1',
+				'weapon_satchel', 'weapon_snark', 'weapon_shotgun_hl1',
+				'weapon_gauss', 'weapon_tripmine'
+			}
+			for index, className in ipairs( weapons ) do
+				highlight.AddClass( className, 'weapon' )
+			end
+
 		end
 
-		local weapons = {
-			'weapon_357_hl1', 'weapon_crossbow_hl1', 'weapon_crowbar_hl1',
-			'weapon_glock_hl1', 'weapon_egon', 'weapon_handgrenade',
-			'weapon_hornetgun', 'weapon_mp5_hl1', 'weapon_rpg_hl1',
-			'weapon_satchel', 'weapon_snark', 'weapon_shotgun_hl1',
-			'weapon_gauss', 'weapon_tripmine'
-		}
+		if IsMounted( 'ep2' ) then
+			highlight.AddClass( 'weapon_striderbuster', 'weapon' )
+		end
 
-		for index, className in ipairs( weapons ) do
-			highlight.AddClass( className, 'weapon' )
+		-- @addons
+		if IsValid( chroma ) then
+
+			concommand.Add( 'highlight_chroma_sync', function( player, command, arguments )
+	
+				for index, color_name in ipairs( chroma:GetColors() ) do
+	
+					local highlight_color = GetConVar( string.format( 'highlight_color_%s', color_name ) )
+	
+					if highlight_color then
+						local chroma_color = GetConVar( string.format( 'chroma_color_%s', color_name ) )
+						highlight_color:SetString( chroma_color:GetString() )
+					end
+	
+				end
+	
+			end )
+	
+		end
+
+		-- @gamemodes
+		local gamemode = engine.ActiveGamemode()
+
+		if ( gamemode == 'sandbox' ) then
+	
+			-- makes tools distinct from weapons
+			highlight.AddColor( 'tool', '255 0 102 255' )
+	
+			highlight.AddClass( 'edit_fog', 'entity' )
+			highlight.AddClass( 'edit_sky', 'entity' )
+			highlight.AddClass( 'edit_sun', 'entity' )
+	
+			highlight.AddClass( 'gmod_camera', 'tool' )
+			highlight.AddClass( 'gmod_tool', 'tool' )
+			highlight.AddClass( 'weapon_physgun', 'tool' )
+			highlight.AddClass( 'weapon_medkit', 'health' )
+	
+			highlight.AddClass( 'sent_ball', 'health' )
+	
+		elseif ( gamemode == 'terrortown' ) then
+	
+			highlight.AddClass( 'item_ammo_357_ttt', 'ammo' )
+			highlight.AddClass( 'item_ammo_pistol_ttt', 'ammo' )
+			highlight.AddClass( 'item_ammo_revolver_ttt', 'ammo' )
+			highlight.AddClass( 'item_ammo_smg1_ttt', 'ammo' )
+			highlight.AddClass( 'item_box_buckshot_ttt', 'ammo' )
+	
+			local weapons = {
+				'ttt_c4', 'weapon_ttt_beacon', 'weapon_ttt_binoculars', 'weapon_ttt_c4',
+				'weapon_ttt_confgrenade', 'weapon_ttt_cse', 'weapon_ttt_decoy', 'weapon_ttt_defuser',
+				'weapon_ttt_flaregun', 'weapon_ttt_glock', 'weapon_ttt_knife', 'weapon_ttt_m16',
+				'weapon_ttt_phammer', 'weapon_ttt_push', 'weapon_ttt_radio', 'weapon_ttt_sipistol',
+				'weapon_ttt_smokegrenade', 'weapon_ttt_stungun', 'weapon_ttt_teleport', 'weapon_ttt_wtester',
+				'weapon_zm_improvised', 'weapon_zm_mac10', 'weapon_zm_molotov', 'weapon_zm_pistol',
+				'weapon_zm_revolver', 'weapon_zm_rifle', 'weapon_zm_shotgun', 'weapon_zm_sledge'
+			}
+	
+			for index, className in ipairs( weapons ) do
+				highlight.AddClass( className, 'weapon' )
+			end
+	
+			highlight.AddClass( 'ttt_health_station', 'health' )
+			highlight.AddClass( 'weapon_ttt_health_station', 'health' )
+	
 		end
 
 	end
+	hook.Add( 'PostGamemodeLoaded', highlight, highlight.PostGamemodeLoaded )
 
-	if IsMounted( 'ep2' ) then
-		highlight.AddClass( 'weapon_striderbuster', 'weapon' )
-	end
-
-	-- @gamemodes
-	local gamemode = engine.ActiveGamemode()
-
-	if ( gamemode == 'sandbox' ) then
-
-		-- makes tools distinct from weapons
-		highlight.AddColor( 'tool', '255 0 204 255' )
-
-		highlight.AddClass( 'edit_fog', 'entity' )
-		highlight.AddClass( 'edit_sky', 'entity' )
-		highlight.AddClass( 'edit_sun', 'entity' )
-
-		highlight.AddClass( 'gmod_camera', 'tool' )
-		highlight.AddClass( 'gmod_tool', 'tool' )
-		highlight.AddClass( 'weapon_physgun', 'tool' )
-		highlight.AddClass( 'weapon_medkit', 'health' )
-
-		highlight.AddClass( 'sent_ball', 'health' )
-
-	elseif ( gamemode == 'terrortown' ) then
-
-		highlight.AddClass( 'item_ammo_357_ttt', 'ammo' )
-		highlight.AddClass( 'item_ammo_pistol_ttt', 'ammo' )
-		highlight.AddClass( 'item_ammo_revolver_ttt', 'ammo' )
-		highlight.AddClass( 'item_ammo_smg1_ttt', 'ammo' )
-		highlight.AddClass( 'item_box_buckshot_ttt', 'ammo' )
-
-		local weapons = {
-			'ttt_c4', 'weapon_ttt_beacon', 'weapon_ttt_binoculars', 'weapon_ttt_c4',
-			'weapon_ttt_confgrenade', 'weapon_ttt_cse', 'weapon_ttt_decoy', 'weapon_ttt_defuser',
-			'weapon_ttt_flaregun', 'weapon_ttt_glock', 'weapon_ttt_knife', 'weapon_ttt_m16',
-			'weapon_ttt_phammer', 'weapon_ttt_push', 'weapon_ttt_radio', 'weapon_ttt_sipistol',
-			'weapon_ttt_smokegrenade', 'weapon_ttt_stungun', 'weapon_ttt_teleport', 'weapon_ttt_wtester',
-			'weapon_zm_improvised', 'weapon_zm_mac10', 'weapon_zm_molotov', 'weapon_zm_pistol',
-			'weapon_zm_revolver', 'weapon_zm_rifle', 'weapon_zm_shotgun', 'weapon_zm_sledge'
-		}
-
-		for index, className in ipairs( weapons ) do
-			highlight.AddClass( className, 'weapon' )
-		end
-
-		highlight.AddClass( 'ttt_health_station', 'health' )
-		highlight.AddClass( 'weapon_ttt_health_station', 'health' )
-
-	end
+	highlight:PostGamemodeLoaded()
 
 end

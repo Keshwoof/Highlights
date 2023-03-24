@@ -66,7 +66,7 @@ Languages needing localizations/translations:
 - `no`/Norwegian
 - `pl`/Polish
 - `pt-BR`/Portuguese (Brazil)
-- `pt-PT `/Portuguese (Portugal)
+- `pt-PT`/Portuguese (Portugal)
 - `ru`/Russian
 - `sk`/Slovak
 - `sv-SE`/Swedish
