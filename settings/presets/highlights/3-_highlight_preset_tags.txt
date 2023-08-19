@@ -1,0 +1,6 @@
+"#highlight_preset.tags"
+{
+	"highlight_text"	"0"
+	"highlight_width"	"5"
+	"highlight_height"	"12"
+}

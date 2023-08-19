@@ -22,8 +22,8 @@ if ( not istable( highlight ) ) then
 		end,
 		Version	= {
 			1, -- major
-			4, -- minor
-			9, -- patch
+			5, -- minor
+			0, -- patch
 		}
 
 	}
@@ -51,6 +51,10 @@ do -- @colors
 
 	end
 
+	function highlight.GetColor( colorName )
+		return colors[ colorName ]
+	end
+
 	highlight.AddColor( 'health', '0 255 51 255' )
 	highlight.AddColor( 'armor', '0 255 255 255' )
 	highlight.AddColor( 'weapon', '204 102 102 255' )
@@ -63,6 +67,10 @@ do -- @classes
 
 	function highlight.AddClass( className, colorName )
 		classes[ className ] = colorName
+	end
+
+	function highlight.GetClass( className )
+		return classes[ className ]
 	end
 
 	highlight.AddClass( 'item_healthcharger', 'health' )
@@ -90,7 +98,6 @@ do -- @classes
 	highlight.AddClass( 'grenade_helicopter', 'weapon' )
 
 	local weapons = {
-		'npc_grenade_frag',
 		'weapon_357', 'weapon_ar2', 'weapon_bugbait', 'weapon_crossbow',
 		'weapon_crowbar', 'weapon_frag', 'weapon_physcannon', 'weapon_pistol',
 		'weapon_rpg', 'weapon_shotgun', 'weapon_slam', 'weapon_smg1',
@@ -389,7 +396,7 @@ do -- @hooks
 
 	function highlight:PopulateToolMenu()
 
-		local tab, category = 'Options', '#highlights'
+		local tab, category = 'Options', language_GetPhrase( '#highlights' )
 		local className, printName = 'highlight_settings', '#Settings'
 		local command, config = '', ''
 
@@ -516,6 +523,7 @@ do -- @support
 		end
 
 		if IsMounted( 'ep2' ) then
+			highlight.AddClass( 'item_grubnugget', 'health' )
 			highlight.AddClass( 'weapon_striderbuster', 'weapon' )
 		end
 

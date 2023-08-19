@@ -1,8 +1,7 @@
 "#highlight_preset.visibility"
 {
-	"highlight_range"	"400"
-	"highlight_height"	"48"
-	"highlight_width"	"3"
-	"highlight_text"	"1"
 	"highlight_font"	"GModWorldtip"
+	"highlight_text"	"1"
+	"highlight_width"	"3"
+	"highlight_height"	"48"
 }
